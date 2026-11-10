@@ -27,3 +27,5 @@ Thumbs.db
 uploads/
 *.log
 *.sqlite
+# Uploaded listing photos
+server/storage/

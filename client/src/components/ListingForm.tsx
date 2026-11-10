@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { api, ApiError } from '../lib/api'
 import type { Listing, ListingInput, ListingStatus, ListingType } from '../lib/listingTypes'
+import ListingPhotos from './ListingPhotos'
 
 type Props = {
   listing: Listing | null
@@ -267,6 +268,12 @@ export default function ListingForm({ listing, onClose, onSaved }: Props) {
               </p>
             )}
           </div>
+
+          {listing ? (
+            <ListingPhotos listingId={listing.id} />
+          ) : (
+            <p className="text-sm text-charcoal-600">Save the listing first, then you can add photos.</p>
+          )}
 
           <div className="flex gap-2 pt-1">
             <button

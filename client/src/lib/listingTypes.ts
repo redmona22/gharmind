@@ -30,3 +30,11 @@ export type ListingInput = {
   status: ListingStatus
   rera_number: string | null
 }
+export type ListingMedia = {
+  id: string
+  filename: string
+  content_type: string
+  size_bytes: number
+}
+
+export type ListingMediaResponse = { items: ListingMedia[] }

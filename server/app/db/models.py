@@ -153,3 +153,13 @@ class RawEvent(Base, TimestampMixin, TenantMixin):
     id: Mapped[uuid.UUID] = _uuid_pk()
     source: Mapped[str] = mapped_column(String(30), nullable=False)
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+
+class ListingMedia(Base, TimestampMixin, TenantMixin):
+    __tablename__ = "listing_media"
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True, nullable=False)
+    filename: Mapped[str] = mapped_column(String(200), nullable=False)  # as uploaded, for display only
+    content_type: Mapped[str] = mapped_column(String(50), nullable=False)  # judged from the file's bytes
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(300), nullable=False)  # where the file lives
+    position: Mapped[int] = mapped_column(Integer, default=0)

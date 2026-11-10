@@ -111,3 +111,25 @@ export async function api<T = unknown>(path: string, options: Options = {}): Pro
 
   return data as T
 }
+// Downloads a protected file (for example a listing photo) with the login token.
+export async function apiBlob(path: string): Promise<Blob> {
+  const token = accessToken
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  let response: Response
+  try {
+    response = await fetch(`${BASE}${path}`, { headers })
+  } catch {
+    throw new ApiError(0, 'Cannot reach the server. Check your connection and try again.', 'network_error')
+  }
+
+  if (!response.ok) {
+    if (response.status === 401 && token) {
+      setToken(null)
+      if (unauthorizedHandler) unauthorizedHandler()
+    }
+    throw new ApiError(response.status, `Request failed (${response.status})`, null)
+  }
+  return response.blob()
+}

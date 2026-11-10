@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     whatsapp_phone_number_id: str = ""
     # Graph API version. Check Meta's current version when you get access.
     whatsapp_api_version: str = "v21.0"
+    # Folder for listing photos. Relative paths are inside the server folder.
+    media_dir: str = "storage"
     sentry_dsn: str = ""
 
 
