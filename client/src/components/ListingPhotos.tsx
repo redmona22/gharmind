@@ -12,9 +12,10 @@ type ThumbProps = {
   item: ListingMedia
   onDelete: (item: ListingMedia) => void
   disabled: boolean
+  readOnly: boolean
 }
 
-function Thumb({ listingId, item, onDelete, disabled }: ThumbProps) {
+function Thumb({ listingId, item, onDelete, disabled, readOnly }: ThumbProps) {
   const [url, setUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
 
@@ -36,28 +37,34 @@ function Thumb({ listingId, item, onDelete, disabled }: ThumbProps) {
     }
   }, [listingId, item.id])
 
+  const size = readOnly ? 'h-36 w-36' : 'h-24 w-24 shrink-0'
+
   return (
-    <li className="relative h-24 w-24 shrink-0 overflow-hidden rounded-md border border-charcoal-200 bg-charcoal-50">
+    <li className={`relative ${size} overflow-hidden rounded-md border border-charcoal-200 bg-charcoal-50`}>
       {url && <img src={url} alt={item.filename} className="h-full w-full object-cover" />}
       {!url && (
         <div className="flex h-full w-full items-center justify-center px-1 text-center text-xs text-charcoal-600">
           {failed ? 'Could not load' : 'Loading...'}
         </div>
       )}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => onDelete(item)}
-        aria-label={`Remove photo ${item.filename}`}
-        className="absolute right-1 top-1 h-6 w-6 rounded-full bg-black/70 text-sm font-medium leading-6 text-white hover:bg-black disabled:opacity-50"
-      >
-        x
-      </button>
+      {!readOnly && (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onDelete(item)}
+          aria-label={`Remove photo ${item.filename}`}
+          className="absolute right-1 top-1 h-6 w-6 rounded-full bg-black/70 text-sm font-medium leading-6 text-white hover:bg-black disabled:opacity-50"
+        >
+          x
+        </button>
+      )}
     </li>
   )
 }
 
-export default function ListingPhotos({ listingId }: { listingId: string }) {
+type Props = { listingId: string; readOnly?: boolean }
+
+export default function ListingPhotos({ listingId, readOnly = false }: Props) {
   const [items, setItems] = useState<ListingMedia[]>([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -138,27 +145,29 @@ export default function ListingPhotos({ listingId }: { listingId: string }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2">
-        <span className="block text-sm font-medium text-charcoal-950">
-          Photos ({items.length}/{MAX_FILES})
-        </span>
-        <label
-          className={
-            'inline-flex h-9 cursor-pointer items-center rounded-md border border-charcoal-600 px-3 text-sm font-medium text-charcoal-950 hover:bg-charcoal-50 ' +
-            (busy || items.length >= MAX_FILES ? 'pointer-events-none opacity-50' : '')
-          }
-        >
-          {busy ? 'Working...' : 'Add photos'}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            className="sr-only"
-            disabled={busy || items.length >= MAX_FILES}
-            onChange={(e) => void onPick(e)}
-          />
-        </label>
-      </div>
+      {!readOnly && (
+        <div className="flex items-center justify-between gap-2">
+          <span className="block text-sm font-medium text-charcoal-950">
+            Photos ({items.length}/{MAX_FILES})
+          </span>
+          <label
+            className={
+              'inline-flex h-9 cursor-pointer items-center rounded-md border border-charcoal-600 px-3 text-sm font-medium text-charcoal-950 hover:bg-charcoal-50 ' +
+              (busy || items.length >= MAX_FILES ? 'pointer-events-none opacity-50' : '')
+            }
+          >
+            {busy ? 'Working...' : 'Add photos'}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              className="sr-only"
+              disabled={busy || items.length >= MAX_FILES}
+              onChange={(e) => void onPick(e)}
+            />
+          </label>
+        </div>
+      )}
 
       {error && (
         <p role="alert" className="mt-2 rounded-md border border-danger px-3 py-2 text-sm">
@@ -166,14 +175,23 @@ export default function ListingPhotos({ listingId }: { listingId: string }) {
         </p>
       )}
 
-      {loaded && items.length === 0 && (
-        <p className="mt-2 text-sm text-charcoal-600">No photos yet. JPEG, PNG or WebP, up to 5 MB each.</p>
+      {loaded && !error && items.length === 0 && (
+        <p className="mt-2 text-sm text-charcoal-600">
+          {readOnly ? 'No photos for this listing yet.' : 'No photos yet. JPEG, PNG or WebP, up to 5 MB each.'}
+        </p>
       )}
 
       {items.length > 0 && (
-        <ul className="mt-2 flex gap-2 overflow-x-auto pb-1">
+        <ul className={readOnly ? 'mt-2 flex flex-wrap gap-2' : 'mt-2 flex gap-2 overflow-x-auto pb-1'}>
           {items.map((m) => (
-            <Thumb key={m.id} listingId={listingId} item={m} onDelete={(x) => void remove(x)} disabled={busy} />
+            <Thumb
+              key={m.id}
+              listingId={listingId}
+              item={m}
+              onDelete={(x) => void remove(x)}
+              disabled={busy}
+              readOnly={readOnly}
+            />
           ))}
         </ul>
       )}

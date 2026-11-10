@@ -6,6 +6,7 @@ import { humanize } from '../lib/format'
 import type { Listing, ListingListResponse } from '../lib/listingTypes'
 import ListingForm from '../components/ListingForm'
 import ListingImport from '../components/ListingImport'
+import ListingPhotos from '../components/ListingPhotos'
 
 const chip = 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap'
 const selectClass = 'h-10 rounded-md border border-charcoal-200 bg-white px-2 text-sm'
@@ -50,6 +51,7 @@ export default function Listings() {
   const [tick, setTick] = useState(0)
   const [editing, setEditing] = useState<Listing | 'new' | null>(null)
   const [importing, setImporting] = useState(false)
+  const [viewing, setViewing] = useState<Listing | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
@@ -233,7 +235,7 @@ export default function Listings() {
                   <tr key={l.id} className="border-t border-charcoal-200 align-top">
                     <td className="px-3 py-2">{humanize(l.listing_type)}</td>
                     <td className="px-3 py-2">
-                      <div className="font-medium text-charcoal-950">{l.project}</div>
+                      <button type="button" onClick={() => setViewing(l)} className="block text-left font-medium text-charcoal-950 hover:underline">{l.project}</button>
                       {l.location && <div className="text-xs text-charcoal-600">{l.location}</div>}
                     </td>
                     <td className="px-3 py-2 text-right">{priceText(l)}</td>
@@ -265,7 +267,7 @@ export default function Listings() {
               <li key={l.id} className="rounded-lg border border-charcoal-200 bg-white p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="font-medium text-charcoal-950">{l.project}</div>
+                    <button type="button" onClick={() => setViewing(l)} className="block text-left font-medium text-charcoal-950 hover:underline">{l.project}</button>
                     {l.location && <div className="text-xs text-charcoal-600">{l.location}</div>}
                   </div>
                   <StatusChip status={l.status} />
@@ -314,6 +316,34 @@ export default function Listings() {
         />
       )}
 
+      {viewing && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 md:items-center md:p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setViewing(null)
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Photos of ${viewing.project}`}
+            className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-lg bg-white p-5 md:rounded-lg"
+          >
+            <h2 className="text-xl font-semibold text-charcoal-950">{viewing.project}</h2>
+            {viewing.location && <p className="text-sm text-charcoal-600">{viewing.location}</p>}
+            <div className="mt-3">
+              <ListingPhotos listingId={viewing.id} readOnly />
+            </div>
+            <button
+              type="button"
+              onClick={() => setViewing(null)}
+              className="mt-4 h-11 rounded-md border border-charcoal-600 px-4 font-medium text-charcoal-950 hover:bg-charcoal-50 md:h-10"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
       {importing && (
         <ListingImport
           onClose={() => setImporting(false)}
