@@ -154,21 +154,37 @@ def _system_prompt(d: _Loaded) -> str:
     )
 
 
+_FACT_HINTS = {
+    "get_listing_details": "Describe this property using only these details.",
+    "check_affordability": (
+        "Give the monthly EMI, what share of the customer's income it is, and the verdict in plain "
+        "words (comfortable, a stretch, or too high), plus the largest comfortable loan. Say it is "
+        "indicative and not a loan approval."
+    ),
+    "calculate_emi": "Give the EMI and total interest exactly as shown.",
+    "search_listings": (
+        "List these properties briefly (project, area, BHK, price) and ask which one interests the customer."
+    ),
+}
+
+
 def _facts_block(found: list[tuple[str, dict]]) -> str:
-    """The looked-up results, worded as instructions for the model."""
+    """The looked-up results, worded as a task for the model. They are attached to the customer's
+    latest message, because a small model follows the last thing it reads."""
     if not found:
         return ""
     lines = [
-        "",
-        "Facts our system already looked up for the customer's latest message. They are exact. "
-        "Answer from them, quote every number exactly as given, never contradict them and never "
-        "add property details that are not here. If a search found nothing, say so honestly. "
-        "Never promise that a loan will be approved.",
+        "[Verified facts from our system for the message above. The work is already done: answer "
+        "the customer's question now, in this reply, using these facts. Do not ask permission to "
+        "look things up or calculate. Quote every number exactly as given and never add property "
+        "details that are not listed. If a search found nothing, say so honestly. Never promise "
+        "that a loan will be approved.]"
     ]
     for name, result in found:
-        lines.append(f"- {name}: " + json.dumps(result, ensure_ascii=False, default=str))
+        lines.append(f"{name}: " + json.dumps(result, ensure_ascii=False, default=str))
+        if hint := _FACT_HINTS.get(name):
+            lines.append(f"-> {hint}")
     return "\n".join(lines)
-
 
 def _api_messages(history: list[tuple[str, str]]) -> list[dict]:
     out: list[dict] = []
@@ -266,8 +282,10 @@ def run_agent(tenant_id: uuid.UUID, conversation_id: uuid.UUID, llm=None) -> Age
 
         inbound = sum(1 for who, _ in d.history if who == "client")
         model = pick_model(text, inbound)
-        system = _system_prompt(d) + _facts_block(found)
+        system = _system_prompt(d)
         messages = _api_messages(d.history)
+        if found and messages and messages[-1]["role"] == "user":
+            messages[-1]["content"] += "\n\n" + _facts_block(found)
         tool_texts: list[str] = [json.dumps(r, ensure_ascii=False, default=str) for _, r in found]
 
         reply = _converse(llm, model, system, messages, ctx, tool_texts, tools_called)

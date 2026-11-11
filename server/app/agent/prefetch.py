@@ -42,14 +42,21 @@ def prefetch_context(ctx: ToolContext, text: str, earlier_customer_texts: list[s
     found: list[tuple[str, dict]] = []
     try:
         listings = _tenant_listings(ctx)
+        named = [(i, p) for i, p, _ in listings]
         recent = list(earlier_customer_texts) + [text]
 
-        # Which project is the customer talking about? This message first, then the ones before.
-        project_ids: list[str] = []
-        for msg in reversed(recent):
-            project_ids = find_mentioned_projects(msg, [(i, p) for i, p, _ in listings])
-            if project_ids:
-                break
+        facts = extract_lead_facts(text)
+        location = find_location(text, [loc for _, _, loc in listings])
+        new_search = bool(facts.get("bhk") or facts.get("budget_max") or location)
+
+        # Which project is the customer talking about? One named in this message wins. A project
+        # named earlier only counts for a follow-up, not when this message starts a new search.
+        project_ids = find_mentioned_projects(text, named)
+        if not project_ids and not new_search:
+            for msg in reversed(earlier_customer_texts):
+                project_ids = find_mentioned_projects(msg, named)
+                if project_ids:
+                    break
 
         details: list[dict] = []
         for listing_id in project_ids[:MAX_PROJECTS]:
@@ -88,20 +95,17 @@ def prefetch_context(ctx: ToolContext, text: str, earlier_customer_texts: list[s
             if "error" not in out:
                 found.append(("calculate_emi", out))
 
-        if not details:
-            facts = extract_lead_facts(text)
-            location = find_location(text, [loc for _, _, loc in listings])
-            if facts.get("bhk") or facts.get("budget_max") or location:
-                purpose = facts.get("purpose") or qualification.get("purpose")
-                args = {
-                    "listing_type": {"buy": "sale", "invest": "sale", "rent": "rent"}.get(purpose),
-                    "bhk": facts.get("bhk") or qualification.get("bhk"),
-                    "max_price": facts.get("budget_max") or qualification.get("budget_max"),
-                    "location": location,
-                }
-                out = execute_tool("search_listings", {k: v for k, v in args.items() if v}, ctx)
-                if "error" not in out:
-                    found.append(("search_listings", out))
+        if not details and new_search:
+            purpose = facts.get("purpose") or qualification.get("purpose")
+            args = {
+                "listing_type": {"buy": "sale", "invest": "sale", "rent": "rent"}.get(purpose),
+                "bhk": facts.get("bhk") or qualification.get("bhk"),
+                "max_price": facts.get("budget_max") or qualification.get("budget_max"),
+                "location": location,
+            }
+            out = execute_tool("search_listings", {k: v for k, v in args.items() if v}, ctx)
+            if "error" not in out:
+                found.append(("search_listings", out))
     except Exception:
         log.exception("prefetch failed")  # the reply still goes ahead without these facts
     return found

@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -56,9 +57,11 @@ class _FakeLLM:
     """Records the system prompt it was given and answers with a short, harmless reply."""
     def __init__(self):
         self.systems = []
+        self.sent = []
 
     def create(self, model, system, messages, tools, max_tokens):
         self.systems.append(system)
+        self.sent.append(json.dumps(messages, ensure_ascii=False))
         return SimpleNamespace(content=[SimpleNamespace(type="text", text="Thanks, noted.")])
 
 
@@ -127,7 +130,7 @@ def test_looked_up_facts_are_given_to_the_model(team_tenant):
     result = run_agent(tid, conv_id, llm=llm)
 
     assert result.action == "reply" and result.reply == "Thanks, noted."
-    assert "get_listing_details" in llm.systems[0] and "ODRERA-TEST-1" in llm.systems[0]
+    assert "get_listing_details" in llm.sent[0] and "ODRERA-TEST-1" in llm.sent[0]
 
 
 def test_stop_is_recorded_even_while_a_human_is_handling_the_chat(team_tenant):
@@ -151,3 +154,16 @@ def test_an_opted_out_customer_gets_no_reply(team_tenant):
     tid, _ = team_tenant
     conv_id, _ = _chat(tid, ["hello again"], consent="opted_out")
     assert run_agent(tid, conv_id, llm=_FakeLLM()).action == "silent"
+
+def test_a_new_search_beats_a_project_mentioned_earlier(team_tenant):
+    tid, _ = team_tenant
+    _listing(tid)
+    found = prefetch_context(_ctx(tid), "Hi, I want a 2 BHK to buy in Patia", ["Tell me more about Lotus Heights"], {})
+    assert _names(found) == ["search_listings"]
+
+
+def test_a_follow_up_still_uses_the_project_mentioned_earlier(team_tenant):
+    tid, _ = team_tenant
+    _listing(tid)
+    found = prefetch_context(_ctx(tid), "what is the price?", ["Tell me more about Lotus Heights"], {})
+    assert _names(found) == ["get_listing_details"]
